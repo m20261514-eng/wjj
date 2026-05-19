@@ -1,295 +1,235 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Delete, ArrowRight, RotateCcw, Trophy } from 'lucide-react';
+import streamlit as st
+import random
+import time
 
-export default function App() {
-  const [targetProduct, setTargetProduct] = useState(null);
-  const [selectedNum1, setSelectedNum1] = useState(null);
-  const [selectedNum2, setSelectedNum2] = useState(null);
-  const [score, setScore] = useState(0);
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState(''); // 'success' | 'error' | 'hint' | ''
-  const [isChecking, setIsChecking] = useState(false);
+# 페이지 기본 설정
+st.set_page_config(page_title="구구단 거꾸로 풀기", page_icon="🧮", layout="centered")
 
-  // 새 기능들을 위한 상태 추가
-  const [correctA, setCorrectA] = useState(null);
-  const [startTime, setStartTime] = useState(Date.now());
-  const [timeTaken, setTimeTaken] = useState(null);
-  const [showTimeModal, setShowTimeModal] = useState(false);
-  const [isHintMode, setIsHintMode] = useState(false);
-
-  // 시간 제한 기능을 위한 상태 추가
-  const [gameState, setGameState] = useState('select_time'); // 'select_time' | 'playing'
-  const [timeLimit, setTimeLimit] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(null);
-
-  // 새로운 문제를 생성하는 함수 (이전 문제와 겹치지 않게 방지)
-  const generateQuestion = useCallback((prevProduct = null, currentLimit = timeLimit) => {
-    let a, b, newProduct;
-    do {
-      a = Math.floor(Math.random() * 8) + 2; // 2 ~ 9
-      b = Math.floor(Math.random() * 8) + 2; // 2 ~ 9
-      newProduct = a * b;
-    } while (newProduct === prevProduct);
-
-    setCorrectA(a); // 힌트용 첫 번째 정답 저장
-    setTargetProduct(newProduct);
-    setSelectedNum1(null);
-    setSelectedNum2(null);
-    setMessage('');
-    setMessageType('');
-    setIsChecking(false);
-    setIsHintMode(false);
-    setStartTime(Date.now()); // 문제 출제 시간 기록 시작
-    setShowTimeModal(false);
-    
-    // 타이머 리셋
-    if (currentLimit) {
-      setTimeLeft(currentLimit);
+def init_state():
+    """Streamlit 세션 상태 초기화"""
+    defaults = {
+        'game_state': 'select_time', # 'select_time' | 'playing'
+        'time_limit': 5,
+        'time_left': 5,
+        'last_tick': time.time(),
+        'target_product': 0,
+        'correct_a': 0,
+        'selected_num1': None,
+        'selected_num2': None,
+        'score': 0,
+        'message': '',
+        'message_type': '', # 'success' | 'error' | 'error_timeout' | 'hint' | ''
+        'is_hint_mode': False,
+        'start_time': 0.0,
+        'time_taken': 0.0,
+        'show_time_modal': False,
     }
-  }, [timeLimit]);
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
-  // 게임 시작 핸들러
-  const startGame = (limit) => {
-    setTimeLimit(limit);
-    setTimeLeft(limit);
-    setGameState('playing');
-    setScore(0);
-    generateQuestion(null, limit);
-  };
-
-  // 타이머 카운트다운 및 시간 초과 처리
-  useEffect(() => {
-    if (gameState !== 'playing' || showTimeModal || isChecking || isHintMode) return;
-
-    if (timeLeft > 0) {
-      const timerId = setTimeout(() => setTimeLeft((prev) => prev - 1), 1000);
-      return () => clearTimeout(timerId);
-    } else if (timeLeft === 0 && !isHintMode) {
-      // 시간 초과 시
-      setIsChecking(true);
-      setMessage('시간 초과! ⏰');
-      setMessageType('error');
-      
-      setTimeout(() => {
-        setSelectedNum1(correctA);
-        setSelectedNum2(null);
-        setMessage('시간이 초과되어 첫 번째 숫자를 알려줄게요!');
-        setMessageType('hint');
-        setIsHintMode(true);
-        setIsChecking(false);
-      }, 1500);
-    }
-  }, [gameState, timeLeft, showTimeModal, isChecking, isHintMode, correctA]);
-
-  // 초기 문제 생성
-  useEffect(() => {
-    generateQuestion();
-  }, [generateQuestion]);
-
-  // 두 숫자가 모두 선택되었을 때 정답 확인
-  useEffect(() => {
-    if (selectedNum1 !== null && selectedNum2 !== null) {
-      setIsChecking(true);
-      
-      if (selectedNum1 * selectedNum2 === targetProduct) {
-        // 정답일 경우
-        const end = Date.now();
-        setTimeTaken(((end - startTime) / 1000).toFixed(1)); // 소요 시간 계산 (소수점 1자리)
-
-        setMessage('정답입니다! 최고예요 🎉');
-        setMessageType('success');
-        setScore((s) => s + 10);
-        setShowTimeModal(true); // 자동 넘김 대신 결과 창(모달) 띄우기
-      } else {
-        // 오답일 경우
-        setMessage('아쉽네요, 다시 생각해봐요! 🤔');
-        setMessageType('error');
+def generate_question(limit=None):
+    """새로운 문제를 출제하고 관련 상태를 초기화하는 함수"""
+    if limit is not None:
+        st.session_state.time_limit = limit
         
-        // 1.2초 후 빨간색 힌트 제공
-        setTimeout(() => {
-          setSelectedNum1(correctA); // 첫 번째 숫자를 정답으로 고정
-          setSelectedNum2(null);     // 두 번째 칸만 비우기
-          setMessage('첫 번째 숫자를 빨간색으로 알려줄게요!');
-          setMessageType('hint');
-          setIsHintMode(true);
-          setIsChecking(false);
-        }, 1200);
-      }
-    }
-  }, [selectedNum1, selectedNum2, targetProduct, correctA, startTime]);
+    while True:
+        a = random.randint(2, 9)
+        b = random.randint(2, 9)
+        new_prod = a * b
+        if new_prod != st.session_state.target_product:
+            break
 
-  // 숫자 패드 클릭 핸들러
-  const handleNumberClick = (num) => {
-    if (isChecking) return;
-    
-    if (selectedNum1 === null) {
-      setSelectedNum1(num);
-    } else if (selectedNum2 === null) {
-      setSelectedNum2(num);
-    }
-  };
+    st.session_state.correct_a = a
+    st.session_state.target_product = new_prod
+    st.session_state.selected_num1 = None
+    st.session_state.selected_num2 = None
+    st.session_state.message = ''
+    st.session_state.message_type = ''
+    st.session_state.is_hint_mode = False
+    st.session_state.show_time_modal = False
+    st.session_state.start_time = time.time()
+    st.session_state.time_left = st.session_state.time_limit
+    st.session_state.last_tick = time.time()
 
-  // 하나 지우기
-  const handleClear = () => {
-    if (isChecking) return;
-    // 힌트 모드일 때는 힌트로 주어진 첫 번째 숫자를 지울 수 없음
-    if (selectedNum1 !== null && selectedNum2 === null && !isHintMode) {
-      setSelectedNum1(null);
-    }
-  };
+def start_game(limit):
+    """게임 시작 핸들러"""
+    st.session_state.game_state = 'playing'
+    st.session_state.score = 0
+    generate_question(limit)
 
-  // 빈칸 스타일 동적 생성 함수 (isFirstBox 파라미터 추가)
-  const getBoxClass = (num, isFirstBox = false) => {
-    const baseStyle = "w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center rounded-2xl border-4 text-4xl sm:text-5xl font-black transition-all duration-300";
-    if (num === null) return `${baseStyle} border-dashed border-sky-200 text-sky-200 bg-white`;
-    if (messageType === 'success') return `${baseStyle} border-green-400 bg-green-50 text-green-500 scale-110`;
-    if (messageType === 'error') return `${baseStyle} border-red-400 bg-red-50 text-red-500 animate-pulse`;
-    
-    // 힌트 모드일 때 첫 번째 박스만 눈에 띄는 빨간색으로 표시
-    if (isHintMode && isFirstBox) return `${baseStyle} border-red-400 bg-red-50 text-red-500 shadow-inner`;
+def handle_number(num):
+    """숫자 버튼 클릭 핸들러 (콜백 함수)"""
+    if st.session_state.show_time_modal or st.session_state.message_type in ['error', 'error_timeout']:
+        return
 
-    return `${baseStyle} border-sky-400 bg-sky-50 text-sky-500 shadow-inner`;
-  };
-
-  // 시작 화면 렌더링
-  if (gameState === 'select_time') {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 font-sans select-none">
-        <div className="bg-white rounded-[2rem] shadow-xl p-8 w-full max-w-md border border-slate-100 text-center">
-          <h1 className="text-3xl font-black text-slate-800 mb-4">구구단 거꾸로 풀기</h1>
-          <p className="text-lg text-slate-500 mb-8">제한 시간을 선택하고 게임을 시작하세요!</p>
-          
-          <div className="flex flex-col gap-4">
-            <button
-              onClick={() => startGame(5)}
-              className="w-full bg-rose-100 hover:bg-rose-200 text-rose-600 font-bold py-5 px-6 rounded-2xl text-xl transition-transform active:scale-95 shadow-sm border-2 border-rose-200 flex items-center justify-center gap-2"
-            >
-              <span className="text-2xl">⏱️</span> 5초 모드
-            </button>
-            <button
-              onClick={() => startGame(10)}
-              className="w-full bg-sky-100 hover:bg-sky-200 text-sky-600 font-bold py-5 px-6 rounded-2xl text-xl transition-transform active:scale-95 shadow-sm border-2 border-sky-200 flex items-center justify-center gap-2"
-            >
-              <span className="text-2xl">⏱️</span> 10초 모드
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 font-sans select-none relative">
-      <div className="bg-white rounded-[2rem] shadow-xl p-6 sm:p-8 w-full max-w-md border border-slate-100 relative overflow-hidden">
+    if st.session_state.selected_num1 is None:
+        st.session_state.selected_num1 = num
+    elif st.session_state.selected_num2 is None:
+        st.session_state.selected_num2 = num
         
-        {/* 정답 시 시간 표시 모달 (새창) */}
-        {showTimeModal && (
-          <div className="absolute inset-0 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center z-50 p-6 animate-in fade-in duration-300">
-            <div className="text-6xl mb-4">⏱️</div>
-            <h2 className="text-3xl font-black text-slate-800 mb-2">정답!</h2>
-            <p className="text-xl text-slate-600 mb-8 text-center">
-              <strong className="text-sky-600 text-3xl mx-2">{timeTaken}</strong>초 만에 풀었어요!
-            </p>
-            <button
-              onClick={() => generateQuestion(targetProduct)}
-              className="w-full max-w-[200px] bg-sky-500 hover:bg-sky-600 text-white font-bold py-4 px-6 rounded-2xl text-lg transition-transform active:scale-95 shadow-lg shadow-sky-200"
-            >
-              다음 문제
-            </button>
-          </div>
-        )}
+        # 두 숫자가 모두 입력되면 정답 확인
+        if st.session_state.selected_num1 * st.session_state.selected_num2 == st.session_state.target_product:
+            st.session_state.time_taken = round(time.time() - st.session_state.start_time, 1)
+            st.session_state.score += 10
+            st.session_state.message = '정답입니다! 최고예요 🎉'
+            st.session_state.message_type = 'success'
+            st.session_state.show_time_modal = True
+            # Streamlit 풍선 효과 트리거
+            st.balloons()
+        else:
+            st.session_state.message = '아쉽네요, 다시 생각해봐요! 🤔'
+            st.session_state.message_type = 'error'
 
-        {/* 상단 헤더 및 점수 */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">구구단 거꾸로 풀기</h1>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-full text-amber-600 font-bold">
-              <Trophy size={18} />
-              <span>{score}점</span>
-            </div>
-            <button 
-              onClick={() => setGameState('select_time')} 
-              className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-full hover:bg-slate-100"
-              title="처음으로"
-            >
-              <RotateCcw size={20} />
-            </button>
-          </div>
-        </div>
+def handle_clear():
+    """지우기 버튼 핸들러"""
+    if st.session_state.selected_num1 is not None and st.session_state.selected_num2 is None and not st.session_state.is_hint_mode:
+        st.session_state.selected_num1 = None
 
-        {/* 타이머 바 */}
-        <div className="w-full bg-slate-100 h-4 rounded-full mb-6 overflow-hidden relative border border-slate-200">
-          <div 
-            className={`h-full transition-all duration-1000 ease-linear ${timeLeft <= 3 ? 'bg-red-400' : 'bg-sky-400'}`}
-            style={{ width: `${(timeLeft / timeLimit) * 100}%` }}
-          />
-          <div className="absolute inset-0 flex items-center justify-center text-xs font-black text-slate-700/70 mix-blend-color-burn">
-            {timeLeft}초
-          </div>
-        </div>
+def go_home():
+    """처음 화면으로 돌아가기"""
+    st.session_state.game_state = 'select_time'
 
-        {/* 문제 표시 영역 */}
-        <div className="bg-sky-50 rounded-3xl p-6 sm:p-8 mb-6 text-center border-2 border-sky-100">
-          <div className="text-2xl font-bold text-slate-600 mb-1">
-            <span className="text-5xl font-black text-sky-600 mr-1">{targetProduct}</span> 은(는)?
-          </div>
-          <div className="text-lg text-slate-500 mb-6">몇 곱하기 몇일까요?</div>
-          
-          {/* 수식 영역 (빈칸) */}
-          <div className="flex items-center justify-center gap-2 sm:gap-4 mt-2">
-            <div className="text-4xl sm:text-5xl font-black text-slate-300 mr-2 sm:mr-4"></div>
-            <div className={getBoxClass(selectedNum1, true)}>
-              {selectedNum1 !== null ? selectedNum1 : '?'}
-            </div>
-            <div className="text-3xl sm:text-4xl font-black text-slate-300">×</div>
-            <div className={getBoxClass(selectedNum2, false)}>
-              {selectedNum2 !== null ? selectedNum2 : '?'}
-            </div>
-          </div>
-        </div>
+# ==========================================
+# UI 렌더링 로직 시작
+# ==========================================
+init_state()
 
-        {/* 상태 메시지 */}
-        <div className={`h-8 text-center font-bold text-lg mb-4 transition-all duration-300 ${
-          messageType === 'success' ? 'text-green-500 animate-bounce' : 
-          messageType === 'error' ? 'text-red-500' : 
-          messageType === 'hint' ? 'text-orange-500 animate-bounce' : 'text-transparent'
-        }`}>
-          {message || 'placeholder'}
-        </div>
+if st.session_state.game_state == 'select_time':
+    st.title("구구단 거꾸로 풀기 🧮")
+    st.subheader("제한 시간을 선택하고 게임을 시작하세요!")
+    st.write("---")
+    
+    if st.button("⏱️ 5초 모드", use_container_width=True):
+        start_game(5)
+        st.rerun()
+    st.write("")
+    if st.button("⏱️ 10초 모드", use_container_width=True):
+        start_game(10)
+        st.rerun()
 
-        {/* 숫자 패드 (1~9) */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-            <button
-              key={num}
-              onClick={() => handleNumberClick(num)}
-              disabled={isChecking}
-              className="bg-white border-2 border-slate-200 text-slate-700 text-2xl sm:text-3xl font-black py-4 sm:py-5 rounded-2xl shadow-sm hover:bg-sky-50 hover:border-sky-300 hover:text-sky-600 active:bg-sky-100 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {num}
-            </button>
-          ))}
-        </div>
+elif st.session_state.game_state == 'playing':
+    # 상단 헤더 및 점수 영역
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        st.subheader("구구단 거꾸로 풀기")
+    with col2:
+        st.write(f"### 🏆 {st.session_state.score}점")
+    with col3:
+        st.button("🔄 처음으로", on_click=go_home, use_container_width=True)
 
-        {/* 컨트롤 버튼 */}
-        <div className="flex gap-3 mt-4">
-          <button 
-            onClick={handleClear} 
-            disabled={isChecking || selectedNum1 === null} 
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 active:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            <Delete size={20} /> 지우기
-          </button>
-          <button 
-            onClick={() => generateQuestion(targetProduct)} 
-            disabled={isChecking} 
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-sky-100 text-sky-700 font-bold hover:bg-sky-200 active:bg-sky-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            건너뛰기 <ArrowRight size={20} />
-          </button>
-        </div>
+    # ------------------------------------------
+    # 1. 타이머 감소 로직
+    # ------------------------------------------
+    if not st.session_state.show_time_modal and not st.session_state.is_hint_mode and st.session_state.message_type not in ['error', 'error_timeout']:
+        now = time.time()
+        elapsed = now - st.session_state.last_tick
+        
+        if elapsed >= 1.0:
+            st.session_state.time_left -= int(elapsed)
+            st.session_state.last_tick = now
 
-      </div>
-    </div>
-  );
-}
+        # 시간 초과 시 상태 변경
+        if st.session_state.time_left <= 0:
+            st.session_state.time_left = 0
+            st.session_state.message = '시간 초과! ⏰'
+            st.session_state.message_type = 'error_timeout'
+            st.rerun()
+
+    # 타이머 프로그레스 바 표시
+    progress_val = max(0.0, min(1.0, st.session_state.time_left / st.session_state.time_limit))
+    st.progress(progress_val, text=f"남은 시간: {st.session_state.time_left}초")
+
+    # ------------------------------------------
+    # 2. 문제 표시 영역
+    # ------------------------------------------
+    st.write("---")
+    st.header(f":blue[{st.session_state.target_product}] 은(는)?", anchor=False)
+    st.write("몇 곱하기 몇일까요?")
+
+    num1 = st.session_state.selected_num1
+    num2 = st.session_state.selected_num2
+    n1_str = str(num1) if num1 is not None else "?"
+    n2_str = str(num2) if num2 is not None else "?"
+
+    # 상태에 따른 색상 변경 로직
+    if st.session_state.is_hint_mode:
+        n1_disp = f":red[{n1_str}]"
+        n2_disp = n2_str
+    elif st.session_state.message_type in ['error', 'error_timeout']:
+        n1_disp = f":red[{n1_str}]"
+        n2_disp = f":red[{n2_str}]" if num2 is not None else "?"
+    elif st.session_state.message_type == 'success':
+        n1_disp = f":green[{n1_str}]"
+        n2_disp = f":green[{n2_str}]"
+    else:
+        n1_disp = n1_str
+        n2_disp = n2_str
+
+    st.subheader(f"{n1_disp} × {n2_disp}", anchor=False)
+
+    # ------------------------------------------
+    # 3. 상태 메시지 출력
+    # ------------------------------------------
+    msg = st.session_state.message
+    if msg:
+        if st.session_state.message_type == 'success':
+            st.success(msg)
+        elif st.session_state.message_type in ['error', 'error_timeout']:
+            st.error(msg)
+        elif st.session_state.message_type == 'hint':
+            st.warning(msg)
+    else:
+        st.write("") # 빈 공간 유지
+
+    # ------------------------------------------
+    # 4. 정답 모달 or 숫자 입력 패드
+    # ------------------------------------------
+    if st.session_state.show_time_modal:
+        st.write("---")
+        st.success("정답을 맞혔습니다! 🎉")
+        st.info(f"⏱️ **{st.session_state.time_taken}**초 만에 풀었어요!")
+        st.button("다음 문제 넘어가기", on_click=generate_question, args=(st.session_state.time_limit,), use_container_width=True)
+    else:
+        st.write("---")
+        # 1~9 숫자 패드 (3x3 그리드)
+        for row in range(3):
+            cols = st.columns(3)
+            for col in range(3):
+                num = row * 3 + col + 1
+                cols[col].button(str(num), key=f"btn_{num}", on_click=handle_number, args=(num,), use_container_width=True)
+
+        st.write("---")
+        # 컨트롤 버튼
+        c1, c2 = st.columns(2)
+        c1.button("지우기", on_click=handle_clear, use_container_width=True, disabled=(st.session_state.selected_num1 is None or st.session_state.is_hint_mode))
+        c2.button("건너뛰기", on_click=generate_question, args=(st.session_state.time_limit,), use_container_width=True)
+
+    # ------------------------------------------
+    # 5. 애니메이션 및 타이머 갱신을 위한 지연(Loop) 처리
+    # ------------------------------------------
+    if st.session_state.game_state == 'playing' and not st.session_state.show_time_modal:
+        # 오답을 입력했을 때 1.2초 대기 후 힌트 모드로 전환
+        if st.session_state.message_type == 'error':
+            time.sleep(1.2)
+            st.session_state.message = '첫 번째 숫자를 빨간색으로 알려줄게요!'
+            st.session_state.message_type = 'hint'
+            st.session_state.selected_num1 = st.session_state.correct_a
+            st.session_state.selected_num2 = None
+            st.session_state.is_hint_mode = True
+            st.rerun()
+            
+        # 시간 초과일 때 1.5초 대기 후 힌트 모드로 전환
+        elif st.session_state.message_type == 'error_timeout':
+            time.sleep(1.5)
+            st.session_state.message = '시간이 초과되어 첫 번째 숫자를 알려줄게요!'
+            st.session_state.message_type = 'hint'
+            st.session_state.selected_num1 = st.session_state.correct_a
+            st.session_state.selected_num2 = None
+            st.session_state.is_hint_mode = True
+            st.rerun()
+            
+        # 평상시 타이머가 돌아가는 중이라면 1초마다 화면 갱신
+        elif not st.session_state.is_hint_mode:
+            time.sleep(1)
+            st.rerun()
