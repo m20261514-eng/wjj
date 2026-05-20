@@ -5,6 +5,13 @@ import time
 # 페이지 기본 설정
 st.set_page_config(page_title="구구단 거꾸로 풀기", page_icon="🧮", layout="centered")
 
+def safe_rerun():
+    """버전 호환성을 위한 rerun 함수"""
+    if hasattr(st, 'rerun'):
+        st.rerun()
+    else:
+        st.experimental_rerun()
+
 def init_state():
     """Streamlit 세션 상태 초기화"""
     defaults = {
@@ -162,11 +169,11 @@ if st.session_state.game_state == 'select_time':
     
     if st.button("⏱️ 5초 모드", use_container_width=True):
         start_game(5)
-        st.rerun()
+        safe_rerun()
     st.write("")
     if st.button("⏱️ 10초 모드", use_container_width=True):
         start_game(10)
-        st.rerun()
+        safe_rerun()
 
 elif st.session_state.game_state == 'playing':
     # 상단 헤더 및 뽑기 영역 배치 (2단 분리)
@@ -314,7 +321,7 @@ elif st.session_state.game_state == 'playing':
             
             # 애니메이션 진행 시간 동안 타이머가 차감되지 않도록 last_tick 초기화
             st.session_state.last_tick = time.time()
-            st.rerun()
+            safe_rerun()
 
         else:
             # 1. 알 뽑기 버튼
@@ -366,7 +373,7 @@ elif st.session_state.game_state == 'playing':
             st.session_state.time_left = 0
             st.session_state.message = '시간 초과! ⏰'
             st.session_state.message_type = 'error_timeout'
-            st.rerun()
+            safe_rerun()
 
     # 타이머 프로그레스 바 표시
     progress_val = max(0.0, min(1.0, st.session_state.time_left / st.session_state.time_limit))
@@ -445,7 +452,7 @@ elif st.session_state.game_state == 'playing':
         if st.session_state.show_time_modal:
             time.sleep(2.0)
             generate_question(st.session_state.time_limit)
-            st.rerun()
+            safe_rerun()
             
         # 오답을 입력했을 때 1.2초 대기 후 힌트 모드로 전환
         elif st.session_state.message_type == 'error':
@@ -455,7 +462,7 @@ elif st.session_state.game_state == 'playing':
             st.session_state.selected_num1 = st.session_state.correct_a
             st.session_state.selected_num2 = None
             st.session_state.is_hint_mode = True
-            st.rerun()
+            safe_rerun()
             
         # 시간 초과일 때 1.5초 대기 후 힌트 모드로 전환
         elif st.session_state.message_type == 'error_timeout':
@@ -465,9 +472,9 @@ elif st.session_state.game_state == 'playing':
             st.session_state.selected_num1 = st.session_state.correct_a
             st.session_state.selected_num2 = None
             st.session_state.is_hint_mode = True
-            st.rerun()
+            safe_rerun()
             
-        # 평상시 타이머가 돌아가는 중이라면 1초마다 화면 갱신
+        # 평상시 타이머가 돌아가는 중이라면 0.1초마다 화면 갱신 (버튼 반응성 향상)
         elif not st.session_state.is_hint_mode and not st.session_state.show_time_modal:
-            time.sleep(1)
-            st.rerun()
+            time.sleep(0.1)
+            safe_rerun()
