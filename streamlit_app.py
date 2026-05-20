@@ -16,7 +16,6 @@ def init_state():
         'correct_a': 0,
         'selected_num1': None,
         'selected_num2': None,
-        'score': 0,
         'total_gold': 0, # 누적 골드
         'earned_gold': 0, # 이번 문제에서 획득한 골드
         'message': '',
@@ -57,7 +56,6 @@ def generate_question(limit=None):
 def start_game(limit):
     """게임 시작 핸들러"""
     st.session_state.game_state = 'playing'
-    st.session_state.score = 0
     st.session_state.total_gold = 0 # 게임 시작 시 골드도 초기화
     generate_question(limit)
 
@@ -74,7 +72,6 @@ def handle_number(num):
         # 두 숫자가 모두 입력되면 정답 확인
         if st.session_state.selected_num1 * st.session_state.selected_num2 == st.session_state.target_product:
             st.session_state.time_taken = round(time.time() - st.session_state.start_time, 1)
-            st.session_state.score += 10
             
             # 랜덤 골드 획득 (5 ~ 15)
             earned = random.randint(5, 15)
@@ -84,7 +81,6 @@ def handle_number(num):
             st.session_state.message = f'정답입니다! {earned} 골드 획득 🎉'
             st.session_state.message_type = 'success'
             st.session_state.show_time_modal = True
-            # 풍선 효과(st.balloons()) 제거됨
         else:
             st.session_state.message = '아쉽네요, 다시 생각해봐요! 🤔'
             st.session_state.message_type = 'error'
@@ -117,13 +113,13 @@ if st.session_state.game_state == 'select_time':
         st.rerun()
 
 elif st.session_state.game_state == 'playing':
-    # 상단 헤더 및 점수/골드 영역
+    # 상단 헤더 및 골드 영역
     col1, col2, col3 = st.columns([2, 1.5, 1])
     with col1:
         st.subheader("구구단 거꾸로 풀기")
     with col2:
-        # 점수와 획득한 총 골드를 함께 표시
-        st.write(f"### 🏆 {st.session_state.score}점 | 🪙 {st.session_state.total_gold}G")
+        # 획득한 총 골드 표시
+        st.write(f"### 🪙 {st.session_state.total_gold} G")
     with col3:
         st.button("🔄 처음으로", on_click=go_home, use_container_width=True)
 
