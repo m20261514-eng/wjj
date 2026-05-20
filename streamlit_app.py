@@ -421,7 +421,7 @@ elif st.session_state.game_state == 'playing':
         st.write("---")
         st.success("정답을 맞혔습니다! 🎉")
         st.info(f"⏱️ **{st.session_state.time_taken}**초 만에 풀었어요!\n\n🪙 **{st.session_state.earned_gold}** 골드를 획득했습니다!")
-        st.button("다음 문제 넘어가기", on_click=generate_question, args=(st.session_state.time_limit,), use_container_width=True)
+        st.write("⏳ 잠시 후 다음 문제로 넘어갑니다...")
     else:
         st.write("---")
         # 1~9 숫자 패드 (3x3 그리드)
@@ -440,9 +440,15 @@ elif st.session_state.game_state == 'playing':
     # ------------------------------------------
     # 5. 애니메이션 및 타이머 갱신을 위한 지연(Loop) 처리
     # ------------------------------------------
-    if st.session_state.game_state == 'playing' and not st.session_state.show_time_modal and not st.session_state.get('is_gacha_animating', False):
+    if st.session_state.game_state == 'playing' and not st.session_state.get('is_gacha_animating', False):
+        # 정답을 맞혔을 때 2초 대기 후 다음 문제로 자동 전환
+        if st.session_state.show_time_modal:
+            time.sleep(2.0)
+            generate_question(st.session_state.time_limit)
+            st.rerun()
+            
         # 오답을 입력했을 때 1.2초 대기 후 힌트 모드로 전환
-        if st.session_state.message_type == 'error':
+        elif st.session_state.message_type == 'error':
             time.sleep(1.2)
             st.session_state.message = '첫 번째 숫자를 빨간색으로 알려줄게요!'
             st.session_state.message_type = 'hint'
@@ -462,6 +468,6 @@ elif st.session_state.game_state == 'playing':
             st.rerun()
             
         # 평상시 타이머가 돌아가는 중이라면 1초마다 화면 갱신
-        elif not st.session_state.is_hint_mode:
+        elif not st.session_state.is_hint_mode and not st.session_state.show_time_modal:
             time.sleep(1)
             st.rerun()
