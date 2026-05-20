@@ -24,6 +24,9 @@ def init_state():
         'start_time': 0.0,
         'time_taken': 0.0,
         'show_time_modal': False,
+        'gacha_count': 0, # 뽑기 횟수
+        'inventory': [],  # 뽑은 동물 보관함
+        'gacha_message': '', # 뽑기 상태 메시지
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -47,6 +50,7 @@ def generate_question(limit=None):
     st.session_state.selected_num2 = None
     st.session_state.message = ''
     st.session_state.message_type = ''
+    st.session_state.gacha_message = '' # 새로운 문제 출제 시 뽑기 메시지 초기화
     st.session_state.is_hint_mode = False
     st.session_state.show_time_modal = False
     st.session_state.start_time = time.time()
@@ -56,8 +60,42 @@ def generate_question(limit=None):
 def start_game(limit):
     """게임 시작 핸들러"""
     st.session_state.game_state = 'playing'
-    st.session_state.total_gold = 0 # 게임 시작 시 골드도 초기화
+    st.session_state.total_gold = 0 # 게임 시작 시 골드 초기화
+    st.session_state.gacha_count = 0 # 뽑기 횟수 초기화
+    st.session_state.inventory = [] # 보관함 초기화
+    st.session_state.gacha_message = ''
     generate_question(limit)
+
+def handle_gacha():
+    """신비의 알 뽑기 버튼 핸들러"""
+    cost = (st.session_state.gacha_count + 1) * 100
+    
+    # 보관함 가득 참 예외 처리 (최대 5개)
+    if len(st.session_state.inventory) >= 5:
+        st.session_state.gacha_message = '보관함이 가득 찼습니다! (최대 5마리)'
+        return
+        
+    # 골드 부족 예외 처리
+    if st.session_state.total_gold < cost:
+        st.session_state.gacha_message = f'골드가 부족합니다! (필요 골드: {cost}G)'
+        return
+        
+    # 비용 차감 및 횟수 증가
+    st.session_state.total_gold -= cost
+    st.session_state.gacha_count += 1
+    
+    # 확률에 따른 등급 및 동물 결정 (일반 70%, 희귀 25%, 전설 5%)
+    rarity = random.choices(['일반', '희귀', '전설'], weights=[70, 25, 5], k=1)[0]
+    
+    if rarity == '일반':
+        animal = random.choice(['🐰', '🐶', '🐱', '🐹', '🐥'])
+    elif rarity == '희귀':
+        animal = random.choice(['🦊', '🐼', '🐯', '🦁', '🦉'])
+    else: # 전설
+        animal = random.choice(['🦄', '🐉', '🐲', '🦅', '🦈'])
+        
+    st.session_state.inventory.append(animal)
+    st.session_state.gacha_message = f'🎉 {rarity} 등급! [{animal}] 획득!'
 
 def handle_number(num):
     """숫자 버튼 클릭 핸들러 (콜백 함수)"""
@@ -113,15 +151,31 @@ if st.session_state.game_state == 'select_time':
         st.rerun()
 
 elif st.session_state.game_state == 'playing':
-    # 상단 헤더 및 골드 영역
-    col1, col2, col3 = st.columns([2, 1.5, 1])
+    # 상단 헤더 및 뽑기 영역 배치 (2단 분리)
+    col1, col2 = st.columns([1.2, 1])
     with col1:
         st.subheader("구구단 거꾸로 풀기")
-    with col2:
-        # 획득한 총 골드 표시
         st.write(f"### 🪙 {st.session_state.total_gold} G")
-    with col3:
         st.button("🔄 처음으로", on_click=go_home, use_container_width=True)
+        
+    with col2:
+        # 1. 알 뽑기 버튼
+        cost = (st.session_state.gacha_count + 1) * 100
+        st.button(f"🥚 신비의 알 뽑기 (🪙 {cost}G 소모)", on_click=handle_gacha, use_container_width=True)
+        
+        # 2. 보관함 표시
+        st.write(f"**보관함** ({len(st.session_state.inventory)}/5)")
+        if st.session_state.inventory:
+            st.write(f"### {' '.join(st.session_state.inventory)}")
+        else:
+            st.write("비어있음")
+            
+        # 3. 뽑기 결과/경고 메시지 표시
+        if st.session_state.gacha_message:
+            if '부족' in st.session_state.gacha_message or '가득' in st.session_state.gacha_message:
+                st.error(st.session_state.gacha_message)
+            else:
+                st.success(st.session_state.gacha_message)
 
     # ------------------------------------------
     # 1. 타이머 감소 로직
