@@ -28,6 +28,8 @@ def init_state():
         'inventory': [],  # 뽑은 동물 보관함
         'gacha_message': '', # 뽑기 상태 메시지
         'gacha_effect': None, # 알 뽑기 이펙트 (None, '일반', '희귀', '전설')
+        'is_gacha_animating': False, # 애니메이션 재생 중 여부
+        'pending_gacha_result': None, # 애니메이션 후 확정될 결과
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -53,6 +55,8 @@ def generate_question(limit=None):
     st.session_state.message_type = ''
     st.session_state.gacha_message = '' # 새로운 문제 출제 시 뽑기 메시지 초기화
     st.session_state.gacha_effect = None
+    st.session_state.is_gacha_animating = False
+    st.session_state.pending_gacha_result = None
     st.session_state.is_hint_mode = False
     st.session_state.show_time_modal = False
     st.session_state.start_time = time.time()
@@ -67,10 +71,14 @@ def start_game(limit):
     st.session_state.inventory = [] # 보관함 초기화
     st.session_state.gacha_message = ''
     st.session_state.gacha_effect = None
+    st.session_state.is_gacha_animating = False
     generate_question(limit)
 
 def handle_gacha():
     """신비의 알 뽑기 버튼 핸들러"""
+    if st.session_state.get('is_gacha_animating', False):
+        return
+
     cost = (st.session_state.gacha_count + 1) * 100
     
     # 보관함 가득 참 예외 처리 (최대 5개)
@@ -97,12 +105,16 @@ def handle_gacha():
     else: # 전설
         animal = random.choice(['🦄', '🐉', '🐲', '🦅', '🦈'])
         
-    st.session_state.inventory.append(animal)
-    st.session_state.gacha_message = f'🎉 {rarity} 등급! [{animal}] 획득!'
-    st.session_state.gacha_effect = rarity # 화면 렌더링 시 이펙트를 보여주기 위해 저장
+    # 애니메이션 상태로 전환 (결과는 애니메이션 끝난 후 보관함에 추가)
+    st.session_state.pending_gacha_result = {'rarity': rarity, 'animal': animal}
+    st.session_state.is_gacha_animating = True
+    st.session_state.gacha_message = ''
+    st.session_state.gacha_effect = None
 
 def handle_number(num):
     """숫자 버튼 클릭 핸들러 (콜백 함수)"""
+    if st.session_state.get('is_gacha_animating', False):
+        return
     if st.session_state.show_time_modal or st.session_state.message_type in ['error', 'error_timeout']:
         return
 
@@ -129,6 +141,8 @@ def handle_number(num):
 
 def handle_clear():
     """지우기 버튼 핸들러"""
+    if st.session_state.get('is_gacha_animating', False):
+        return
     if st.session_state.selected_num1 is not None and st.session_state.selected_num2 is None and not st.session_state.is_hint_mode:
         st.session_state.selected_num1 = None
 
@@ -163,43 +177,95 @@ elif st.session_state.game_state == 'playing':
         st.button("🔄 처음으로", on_click=go_home, use_container_width=True)
         
     with col2:
-        # 1. 알 뽑기 버튼
-        cost = (st.session_state.gacha_count + 1) * 100
-        st.button(f"🥚 신비의 알 뽑기 (🪙 {cost}G 소모)", on_click=handle_gacha, use_container_width=True)
-        
-        # 2. 보관함 표시
-        st.write(f"**보관함** ({len(st.session_state.inventory)}/5)")
-        if st.session_state.inventory:
-            st.write(f"### {' '.join(st.session_state.inventory)}")
-        else:
-            st.write("비어있음")
+        if st.session_state.get('is_gacha_animating', False):
+            # ------------------------------------------
+            # 알 뽑기 애니메이션 연출
+            # ------------------------------------------
+            anim_ph = st.empty()
             
-        # 3. 뽑기 결과/경고 메시지 표시 및 화려한 이펙트 실행
-        if st.session_state.gacha_message:
-            if '부족' in st.session_state.gacha_message or '가득' in st.session_state.gacha_message:
-                st.error(st.session_state.gacha_message)
-            else:
-                st.success(st.session_state.gacha_message)
-                
-        # 화려한 뽑기 이펙트
-        if st.session_state.gacha_effect:
-            rarity = st.session_state.gacha_effect
+            # 1단계: 흔들
+            anim_ph.markdown("<div style='text-align: center;'><div style='font-size: 50px; display: inline-block;'>🥚</div><br>알이 흔들립니다...</div>", unsafe_allow_html=True)
+            time.sleep(0.5)
+            
+            # 2단계: 격렬한 흔들림
+            anim_ph.markdown("<div style='text-align: center;'><div style='font-size: 55px; display: inline-block; transform: rotate(15deg);'>🥚</div><br>격렬하게 흔들립니다!!</div>", unsafe_allow_html=True)
+            time.sleep(0.5)
+            
+            # 3단계: 금 가기
+            anim_ph.markdown("<div style='text-align: center;'><div style='font-size: 60px; display: inline-block; transform: rotate(-15deg);'>🥚⚡</div><br>금 가기 시작했습니다!</div>", unsafe_allow_html=True)
+            time.sleep(0.5)
+            
+            # 4단계: 쾅!
+            anim_ph.markdown("<div style='text-align: center;'><div style='font-size: 80px; display: inline-block;'>💥</div><br><strong style='color: red;'>쾅!!!</strong></div>", unsafe_allow_html=True)
+            time.sleep(0.4)
+            
+            # 5단계: 등급별 빛 연출 및 결과 확인
+            res = st.session_state.pending_gacha_result
+            rarity = res['rarity']
+            animal = res['animal']
+            
             if rarity == '전설':
-                st.balloons()
-                st.toast("🌟 전설의 동물이 부화했습니다! 🌟", icon="✨")
+                glow_css = "text-shadow: 0 0 30px #ffd700, 0 0 60px #ff8c00; color: #ffd700;"
+                bg_css = "background: radial-gradient(circle, rgba(255,215,0,0.4) 0%, rgba(255,255,255,0) 70%);"
             elif rarity == '희귀':
-                st.snow()
-                st.toast("✨ 희귀한 동물이 부화했습니다! ✨", icon="💫")
-            elif rarity == '일반':
-                st.toast("🥚 알이 무사히 부화했습니다!", icon="🐣")
+                glow_css = "text-shadow: 0 0 20px #00ffff, 0 0 40px #1e90ff; color: #00ffff;"
+                bg_css = "background: radial-gradient(circle, rgba(0,255,255,0.4) 0%, rgba(255,255,255,0) 70%);"
+            else: # 일반
+                glow_css = "text-shadow: 0 0 15px #cccccc; color: #ffffff;"
+                bg_css = "background: radial-gradient(circle, rgba(200,200,200,0.3) 0%, rgba(255,255,255,0) 70%);"
                 
-            # 이펙트는 한 번만 보여주고 초기화
-            st.session_state.gacha_effect = None
+            anim_ph.markdown(f"<div style='text-align: center; padding: 20px; border-radius: 20px; {bg_css}'><div style='font-size: 90px; {glow_css}'>{animal}</div><div style='font-weight: bold; font-size: 24px; {glow_css}'>{rarity} 등급!</div></div>", unsafe_allow_html=True)
+            time.sleep(1.2)
+            
+            # 결과 확정 및 상태 초기화
+            st.session_state.inventory.append(animal)
+            st.session_state.gacha_message = f'🎉 {rarity} 등급! [{animal}] 획득!'
+            st.session_state.gacha_effect = rarity
+            st.session_state.is_gacha_animating = False
+            st.session_state.pending_gacha_result = None
+            
+            # 애니메이션 진행 시간 동안 타이머가 차감되지 않도록 last_tick 초기화
+            st.session_state.last_tick = time.time()
+            st.rerun()
+
+        else:
+            # 1. 알 뽑기 버튼
+            cost = (st.session_state.gacha_count + 1) * 100
+            st.button(f"🥚 신비의 알 뽑기 (🪙 {cost}G 소모)", on_click=handle_gacha, use_container_width=True)
+            
+            # 2. 보관함 표시
+            st.write(f"**보관함** ({len(st.session_state.inventory)}/5)")
+            if st.session_state.inventory:
+                st.write(f"### {' '.join(st.session_state.inventory)}")
+            else:
+                st.write("비어있음")
+                
+            # 3. 뽑기 결과/경고 메시지 표시 및 화려한 이펙트 실행
+            if st.session_state.gacha_message:
+                if '부족' in st.session_state.gacha_message or '가득' in st.session_state.gacha_message:
+                    st.error(st.session_state.gacha_message)
+                else:
+                    st.success(st.session_state.gacha_message)
+                    
+            # 화려한 화면 효과(풍선/눈 등) 트리거
+            if st.session_state.gacha_effect:
+                rarity = st.session_state.gacha_effect
+                if rarity == '전설':
+                    st.balloons()
+                    st.toast("🌟 전설의 동물이 부화했습니다! 🌟", icon="✨")
+                elif rarity == '희귀':
+                    st.snow()
+                    st.toast("✨ 희귀한 동물이 부화했습니다! ✨", icon="💫")
+                elif rarity == '일반':
+                    st.toast("🥚 알이 무사히 부화했습니다!", icon="🐣")
+                    
+                # 이펙트는 한 번만 보여주고 초기화
+                st.session_state.gacha_effect = None
 
     # ------------------------------------------
     # 1. 타이머 감소 로직
     # ------------------------------------------
-    if not st.session_state.show_time_modal and not st.session_state.is_hint_mode and st.session_state.message_type not in ['error', 'error_timeout']:
+    if not st.session_state.show_time_modal and not st.session_state.is_hint_mode and st.session_state.message_type not in ['error', 'error_timeout'] and not st.session_state.get('is_gacha_animating', False):
         now = time.time()
         elapsed = now - st.session_state.last_tick
         
@@ -280,13 +346,13 @@ elif st.session_state.game_state == 'playing':
         st.write("---")
         # 컨트롤 버튼
         c1, c2 = st.columns(2)
-        c1.button("지우기", on_click=handle_clear, use_container_width=True, disabled=(st.session_state.selected_num1 is None or st.session_state.is_hint_mode))
-        c2.button("건너뛰기", on_click=generate_question, args=(st.session_state.time_limit,), use_container_width=True)
+        c1.button("지우기", on_click=handle_clear, use_container_width=True, disabled=(st.session_state.selected_num1 is None or st.session_state.is_hint_mode or st.session_state.get('is_gacha_animating', False)))
+        c2.button("건너뛰기", on_click=generate_question, args=(st.session_state.time_limit,), use_container_width=True, disabled=st.session_state.get('is_gacha_animating', False))
 
     # ------------------------------------------
     # 5. 애니메이션 및 타이머 갱신을 위한 지연(Loop) 처리
     # ------------------------------------------
-    if st.session_state.game_state == 'playing' and not st.session_state.show_time_modal:
+    if st.session_state.game_state == 'playing' and not st.session_state.show_time_modal and not st.session_state.get('is_gacha_animating', False):
         # 오답을 입력했을 때 1.2초 대기 후 힌트 모드로 전환
         if st.session_state.message_type == 'error':
             time.sleep(1.2)
