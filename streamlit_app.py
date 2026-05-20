@@ -179,24 +179,74 @@ elif st.session_state.game_state == 'playing':
     with col2:
         if st.session_state.get('is_gacha_animating', False):
             # ------------------------------------------
-            # 알 뽑기 애니메이션 연출
+            # 알 뽑기 애니메이션 연출 (강화 버전)
             # ------------------------------------------
             anim_ph = st.empty()
             
             # 1단계: 흔들
-            anim_ph.markdown("<div style='text-align: center;'><div style='font-size: 50px; display: inline-block;'>🥚</div><br>알이 흔들립니다...</div>", unsafe_allow_html=True)
-            time.sleep(0.5)
+            anim_ph.markdown("""
+            <style>
+            @keyframes gentle-shake {
+                0% { transform: rotate(0deg); }
+                25% { transform: rotate(-10deg); }
+                50% { transform: rotate(0deg); }
+                75% { transform: rotate(10deg); }
+                100% { transform: rotate(0deg); }
+            }
+            .egg-stage1 { display: inline-block; font-size: 60px; animation: gentle-shake 0.4s infinite; }
+            </style>
+            <div style='text-align: center;'><div class='egg-stage1'>🥚</div><br><span style='font-size:20px'>알이 흔들립니다...</span></div>
+            """, unsafe_allow_html=True)
+            time.sleep(0.7)
             
             # 2단계: 격렬한 흔들림
-            anim_ph.markdown("<div style='text-align: center;'><div style='font-size: 55px; display: inline-block; transform: rotate(15deg);'>🥚</div><br>격렬하게 흔들립니다!!</div>", unsafe_allow_html=True)
-            time.sleep(0.5)
+            anim_ph.markdown("""
+            <style>
+            @keyframes intense-shake {
+                0% { transform: translate(1px, 1px) rotate(0deg); }
+                10% { transform: translate(-1px, -2px) rotate(-15deg); }
+                20% { transform: translate(-3px, 0px) rotate(15deg); }
+                30% { transform: translate(3px, 2px) rotate(0deg); }
+                40% { transform: translate(1px, -1px) rotate(15deg); }
+                50% { transform: translate(-1px, 2px) rotate(-15deg); }
+                60% { transform: translate(-3px, 1px) rotate(0deg); }
+                70% { transform: translate(3px, 1px) rotate(-15deg); }
+                80% { transform: translate(-1px, -1px) rotate(15deg); }
+                90% { transform: translate(1px, 2px) rotate(0deg); }
+                100% { transform: translate(1px, -2px) rotate(-15deg); }
+            }
+            .egg-stage2 { display: inline-block; font-size: 65px; animation: intense-shake 0.2s infinite; }
+            </style>
+            <div style='text-align: center;'><div class='egg-stage2'>🥚</div><br><span style='font-size:20px; font-weight:bold; color:orange'>격렬하게 흔들립니다!!</span></div>
+            """, unsafe_allow_html=True)
+            time.sleep(0.7)
             
-            # 3단계: 금 가기
-            anim_ph.markdown("<div style='text-align: center;'><div style='font-size: 60px; display: inline-block; transform: rotate(-15deg);'>🥚⚡</div><br>금 가기 시작했습니다!</div>", unsafe_allow_html=True)
-            time.sleep(0.5)
+            # 3단계: 쩌저적 금 가기
+            anim_ph.markdown("""
+            <style>
+            @keyframes shudder {
+                0% { transform: scale(1) rotate(0deg); filter: brightness(1); }
+                50% { transform: scale(1.05) rotate(-5deg); filter: brightness(1.2); }
+                100% { transform: scale(1) rotate(5deg); filter: brightness(1); }
+            }
+            .egg-stage3 { display: inline-block; font-size: 70px; animation: shudder 0.1s infinite; }
+            </style>
+            <div style='text-align: center;'><div class='egg-stage3'>🥚⚡</div><br><span style='font-size:24px; font-weight:bold; color:red'>쩌저적... 금 가기 시작했습니다!</span></div>
+            """, unsafe_allow_html=True)
+            time.sleep(0.8)
             
-            # 4단계: 쾅!
-            anim_ph.markdown("<div style='text-align: center;'><div style='font-size: 80px; display: inline-block;'>💥</div><br><strong style='color: red;'>쾅!!!</strong></div>", unsafe_allow_html=True)
+            # 4단계: 쾅! 펄스 효과
+            anim_ph.markdown("""
+            <style>
+            @keyframes pulse-explode {
+                0% { transform: scale(0.5); opacity: 0.8; filter: brightness(2); }
+                50% { transform: scale(2.5); opacity: 1; filter: brightness(1.5); }
+                100% { transform: scale(1.2); opacity: 0; filter: brightness(1); }
+            }
+            .egg-stage4 { display: inline-block; font-size: 100px; animation: pulse-explode 0.4s ease-out forwards; }
+            </style>
+            <div style='text-align: center;'><div class='egg-stage4'>💥</div><br><strong style='font-size:30px; color: red;'>쾅!!!</strong></div>
+            """, unsafe_allow_html=True)
             time.sleep(0.4)
             
             # 5단계: 등급별 빛 연출 및 결과 확인
@@ -205,17 +255,55 @@ elif st.session_state.game_state == 'playing':
             animal = res['animal']
             
             if rarity == '전설':
-                glow_css = "text-shadow: 0 0 30px #ffd700, 0 0 60px #ff8c00; color: #ffd700;"
-                bg_css = "background: radial-gradient(circle, rgba(255,215,0,0.4) 0%, rgba(255,255,255,0) 70%);"
+                flash_color = 'rgba(255, 215, 0, 0.8)'
+                glow_color = '#ffd700'
+                bg_center = 'rgba(255,215,0,0.5)'
             elif rarity == '희귀':
-                glow_css = "text-shadow: 0 0 20px #00ffff, 0 0 40px #1e90ff; color: #00ffff;"
-                bg_css = "background: radial-gradient(circle, rgba(0,255,255,0.4) 0%, rgba(255,255,255,0) 70%);"
+                flash_color = 'rgba(0, 255, 255, 0.8)'
+                glow_color = '#00ffff'
+                bg_center = 'rgba(0,255,255,0.5)'
             else: # 일반
-                glow_css = "text-shadow: 0 0 15px #cccccc; color: #ffffff;"
-                bg_css = "background: radial-gradient(circle, rgba(200,200,200,0.3) 0%, rgba(255,255,255,0) 70%);"
+                flash_color = 'rgba(255, 255, 255, 0.9)'
+                glow_color = '#ffffff'
+                bg_center = 'rgba(200,200,200,0.4)'
                 
-            anim_ph.markdown(f"<div style='text-align: center; padding: 20px; border-radius: 20px; {bg_css}'><div style='font-size: 90px; {glow_css}'>{animal}</div><div style='font-weight: bold; font-size: 24px; {glow_css}'>{rarity} 등급!</div></div>", unsafe_allow_html=True)
-            time.sleep(1.2)
+            anim_ph.markdown(f'''
+            <style>
+            @keyframes bg-flash {{
+                0% {{ background-color: {flash_color}; box-shadow: 0 0 100px {flash_color}; }}
+                100% {{ background-color: transparent; box-shadow: none; }}
+            }}
+            @keyframes pulse-glow {{
+                0% {{ text-shadow: 0 0 10px {glow_color}, 0 0 20px {glow_color}; transform: scale(1); }}
+                50% {{ text-shadow: 0 0 30px {glow_color}, 0 0 60px {glow_color}; transform: scale(1.1); }}
+                100% {{ text-shadow: 0 0 10px {glow_color}, 0 0 20px {glow_color}; transform: scale(1); }}
+            }}
+            .result-container {{
+                text-align: center;
+                padding: 30px;
+                border-radius: 20px;
+                animation: bg-flash 1s ease-out;
+                background: radial-gradient(circle, {bg_center} 0%, rgba(255,255,255,0) 70%);
+            }}
+            .result-animal {{
+                font-size: 100px;
+                animation: pulse-glow 1.5s infinite;
+                color: {glow_color};
+            }}
+            .result-text {{
+                font-weight: bold;
+                font-size: 30px;
+                margin-top: 10px;
+                animation: pulse-glow 1.5s infinite;
+                color: {glow_color};
+            }}
+            </style>
+            <div class="result-container">
+                <div class="result-animal">{animal}</div>
+                <div class="result-text">{rarity} 등급!</div>
+            </div>
+            ''', unsafe_allow_html=True)
+            time.sleep(1.5)
             
             # 결과 확정 및 상태 초기화
             st.session_state.inventory.append(animal)
