@@ -27,6 +27,7 @@ def init_state():
         'gacha_count': 0, # 뽑기 횟수
         'inventory': [],  # 뽑은 동물 보관함
         'gacha_message': '', # 뽑기 상태 메시지
+        'gacha_effect': None, # 알 뽑기 이펙트 (None, '일반', '희귀', '전설')
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -51,6 +52,7 @@ def generate_question(limit=None):
     st.session_state.message = ''
     st.session_state.message_type = ''
     st.session_state.gacha_message = '' # 새로운 문제 출제 시 뽑기 메시지 초기화
+    st.session_state.gacha_effect = None
     st.session_state.is_hint_mode = False
     st.session_state.show_time_modal = False
     st.session_state.start_time = time.time()
@@ -64,6 +66,7 @@ def start_game(limit):
     st.session_state.gacha_count = 0 # 뽑기 횟수 초기화
     st.session_state.inventory = [] # 보관함 초기화
     st.session_state.gacha_message = ''
+    st.session_state.gacha_effect = None
     generate_question(limit)
 
 def handle_gacha():
@@ -96,6 +99,7 @@ def handle_gacha():
         
     st.session_state.inventory.append(animal)
     st.session_state.gacha_message = f'🎉 {rarity} 등급! [{animal}] 획득!'
+    st.session_state.gacha_effect = rarity # 화면 렌더링 시 이펙트를 보여주기 위해 저장
 
 def handle_number(num):
     """숫자 버튼 클릭 핸들러 (콜백 함수)"""
@@ -170,12 +174,27 @@ elif st.session_state.game_state == 'playing':
         else:
             st.write("비어있음")
             
-        # 3. 뽑기 결과/경고 메시지 표시
+        # 3. 뽑기 결과/경고 메시지 표시 및 화려한 이펙트 실행
         if st.session_state.gacha_message:
             if '부족' in st.session_state.gacha_message or '가득' in st.session_state.gacha_message:
                 st.error(st.session_state.gacha_message)
             else:
                 st.success(st.session_state.gacha_message)
+                
+        # 화려한 뽑기 이펙트
+        if st.session_state.gacha_effect:
+            rarity = st.session_state.gacha_effect
+            if rarity == '전설':
+                st.balloons()
+                st.toast("🌟 전설의 동물이 부화했습니다! 🌟", icon="✨")
+            elif rarity == '희귀':
+                st.snow()
+                st.toast("✨ 희귀한 동물이 부화했습니다! ✨", icon="💫")
+            elif rarity == '일반':
+                st.toast("🥚 알이 무사히 부화했습니다!", icon="🐣")
+                
+            # 이펙트는 한 번만 보여주고 초기화
+            st.session_state.gacha_effect = None
 
     # ------------------------------------------
     # 1. 타이머 감소 로직
