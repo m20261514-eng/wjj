@@ -86,6 +86,7 @@ def handle_gacha():
     if st.session_state.get('is_gacha_animating', False):
         return
 
+    # 골드 뽑기 상한 300G 적용
     cost = min((st.session_state.gacha_count + 1) * 100, 300)
     
     # 보관함 가득 참 예외 처리 (최대 5개)
